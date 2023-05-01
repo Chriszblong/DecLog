@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build",
+        // "--config", "Debug",
+        "--target", "all",
+        // "--target", "beringei_main",
+        // "--target", "beringei_put",
+        // "--target", "beringei_get",
+        // "--target", "beringei_configuration_generator",
+        // "--target", "beringei_plugin_test_bin",
+        // ".",
+        // "-DCMAKE_BUILD_TYPE=Debug",
+        "--",
+        "-j", "8",
+        // "&&",
+        // "make",
+        // "-j8"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": "build"
+    }
+  ]
+}

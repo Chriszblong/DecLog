@@ -1,0 +1,34 @@
+{
+  "serviceMap" : [
+    {
+      "shardMap" : [
+        {
+          "port" : 9997,
+          "shardId" : 0,
+          "hostAddress" : "dell-PowerEdge-R750"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 1,
+          "hostAddress" : "dell-PowerEdge-R750"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 2,
+          "hostAddress" : "dell-PowerEdge-R750"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 3,
+          "hostAddress" : "dell-PowerEdge-R750"
+        }
+      ],
+      "isLoggingNewKeysEnabled" : false,
+      "serviceName" : "beringei",
+      "location" : "facebook"
+    }
+  ],
+  "shardCount" : 4
+}
+
+//"hostAddress" : "dell-PowerEdge-R750"

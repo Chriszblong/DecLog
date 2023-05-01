@@ -1,0 +1,44 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+      {
+        "name": "(gdb)bereingei_main",
+        "type": "cppdbg",   //正在使用的调试器,使用Visual Studio Windows时必须为cppvsdbg,使用GDB或LLDB时必须为cppdbg.
+        "request": "launch",  //表示此配置是用于启动程序还是附加到已运行的实例上
+        // "program": "/mnt/data1/.github/timeSeries/beringei/build/beringei/service/CMakeFiles/beringei_main.dir/BeringeiMain.cpp.o",
+        "program": "${workspaceFolder}/build/beringei/service/beringei_main",   //要执行的可执行文件的完整路径
+        "args":[
+          "-beringei_configuration_path", "/mnt/data1/.github/timeSeries/beringei/beringei.json",
+          "-create_directories",
+          "-sleep_between_bucket_finalization_secs", "10000000",
+          "-allowed_timestamp_behind", "300", 
+          "-bucket_size", "600", 
+          "-buckets", "$((86400/600))", 
+          // "-buckets", "166",
+          "-logtostderr", "-v=2"
+        ],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}/build/beringei/service/",            //设置调试器启动的应用程序的工作目录
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",   //要连接的调试器, 在debug的terminal中输入sudo su，进入root
+        "preLaunchTask": "build",
+        "miDebuggerPath": "/usr/bin/gdb",
+        "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            },
+            {
+                "description": "Set Disassembly Flavor to Intel",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+            }
+        ]
+      }
+  ]
+}

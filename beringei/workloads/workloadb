@@ -1,0 +1,64 @@
+# Copyright (c) 2010 Yahoo! Inc. All rights reserved.                                                                                                                             
+#                                                                                                                                                                                 
+# Licensed under the Apache License, Version 2.0 (the "License"); you                                                                                                             
+# may not use this file except in compliance with the License. You                                                                                                                
+# may obtain a copy of the License at                                                                                                                                             
+#                                                                                                                                                                                 
+# http://www.apache.org/licenses/LICENSE-2.0                                                                                                                                      
+#                                                                                                                                                                                 
+# Unless required by applicable law or agreed to in writing, software                                                                                                             
+# distributed under the License is distributed on an "AS IS" BASIS,                                                                                                               
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or                                                                                                                 
+# implied. See the License for the specific language governing                                                                                                                    
+# permissions and limitations under the License. See accompanying                                                                                                                 
+# LICENSE file.                                                                                                                                                                   
+
+
+# Yahoo! Cloud System Benchmark
+# Workload A: Update heavy workload
+#   Application example: Session store recording recent actions
+#                        
+#   Read/update ratio: 50/50
+#   Default data size: 1 KB records (10 fields, 100 bytes each, plus key)
+#   Request distribution: zipfian
+
+workload=com.yahoo.ycsb.workloads.CoreWorkload
+recordcount=1000000
+operationcount=1000
+insertstart=1439241005000
+insertend=1440241005000
+measurementtype=histogram
+metric=usermetric
+tagcount=3
+tagvaluelengthdistribution=constant
+tagvaluelength=10
+tagprefix=TAG
+randomtagamount=false
+predefinedtagvalues=true
+predefinedtagvalueamount=1000
+predefinedtagstoragefile=predefinedtags.txt
+predefinedtagstoreused=true
+valuemax=10000
+valuemin=0
+readproportion=0
+insertproportion=0
+scanproportion=0.25
+avgproportion=0.25
+countproportion=0.25
+sumproportion=0.25
+timevalue=0
+timeunit=ms
+requestdistribution=uniform
+maxscanlength=10000
+minscanlength=1000
+scanlengthdistribution=uniform
+maxrecordsperts=10
+randomamountperts=constant
+randomfloorfilling=false
+querymaxtagvalues=5
+notagsforread=true
+readfromcsv=false
+csvfile=values.csv
+csvbuffersize=100000
+description=Inserts 1000000 records with 3 tags each. Earch tag has a value with a length of 10. Each record has a double value between 0 and 10000. After all inserts has processed there will be 100 sum/count/avg/scan operations (25 each) on a random timespan (min 1000 s, max 10000 s) with a random amount (between 1-5) of tagvalues  per tag. All data will use 10000 predefined, randomly generated, tags. There is only one record per timestamp.
+timeresolution=1000

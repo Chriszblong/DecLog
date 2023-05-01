@@ -1,0 +1,22 @@
+# Git ignore File
+
+**/*.pyc
+**/__pycache__
+.*
+!/.gitignore
+
+**/*.directory
+*/data.csv
+*.log
+*.ydc
+*.html
+*.pdf
+*.tar.gz
+**/target/*
+.idea/*
+# *.iml
+.project
+.classpath
+.settings
+.checkstyle
+.DS_Store

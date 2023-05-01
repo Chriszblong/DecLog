@@ -5,6 +5,7 @@ Our paper,"DecLog: Decentralized Logging in Non-Volatile Memory for Time Series 
 
 
 ## Build DecLog
+Copy Beringei to workspace.
 ```
 $ unzip ./install/ALL.zip
 $ sudo ./install/setup_ubuntu.sh

@@ -262,9 +262,6 @@ popd
 
 echo $(dirname $0)
 
-tar -zxvf $WORK_PATH/beringei.tar.gz -C $WORK_PATH
-
-
 cd $WORK_PATH/beringei
 
 if [ ! -d "./build" ];then

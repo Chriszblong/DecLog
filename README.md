@@ -35,7 +35,7 @@ $ mkdir /tmp/log
 ## Run DecLog
 
 ```
-$ beringei/beringei/build/beringei/service/beringei_main \
+$ ./beringei/beringei/build/beringei/service/beringei_main \
         -beringei_configuration_path ./beringei/beringei.json \
         -create_directories \
         -bucket_size 600 \
@@ -52,7 +52,7 @@ $ beringei/beringei/build/beringei/service/beringei_main \
 ```
 ## Run DecLog-SSD
 ```
-$ beringei/beringei/build/beringei/service/beringei_main \
+$ ./beringei/beringei/build/beringei/service/beringei_main \
         -beringei_configuration_path ./beringei/beringei.json \
         -create_directories \
         -bucket_size 600 \
@@ -72,7 +72,7 @@ $ beringei/beringei/build/beringei/service/beringei_main \
 ```
 ## Run Beringei-NVM
 ```
-$ beringei/beringei/build/beringei/service/beringei_main \
+$ ./beringei/beringei/build/beringei/service/beringei_main \
         -beringei_configuration_path ./beringei/beringei.json \
         -create_directories \
         -bucket_size 600 \
@@ -92,7 +92,7 @@ $ beringei/beringei/build/beringei/service/beringei_main \
 ```
 ## Run Beringei-SSD
 ```
-$ beringei/beringei/build/beringei/service/beringei_main \
+$ ./beringei/beringei/build/beringei/service/beringei_main \
         -beringei_configuration_path ./beringei/beringei.json \
         -create_directories \
         -bucket_size 600 \

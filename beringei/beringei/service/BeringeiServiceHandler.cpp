@@ -33,13 +33,10 @@
 DECLARE_int32(using_libpmem_or_libpmem2);
 DECLARE_int32(log_flag_checkpoint);
 DECLARE_int32(is_checkpoint);
+DECLARE_int32(bucket_size);
 DEFINE_int32(pmem_dimms, 8, "Number of pmem dimms");
-DEFINE_int32(shards, 4, "Number of maps to use");
+DEFINE_int32(shards, 8, "Number of maps to use");
 DEFINE_int32(buckets, 120, "Number of historical buckets to use");
-DEFINE_int32(
-    bucket_size,
-    2 * facebook::gorilla::kGorillaSecondsPerHour,
-    "Size of each bucket in seconds");
 DEFINE_int32(
     allowed_timestamp_ahead,
     facebook::gorilla::kGorillaSecondsPerMinute,
@@ -73,13 +70,13 @@ DEFINE_string(
 DEFINE_int32(add_shard_threads, 1, "The number of threads for adding shards");
 DEFINE_int32(
     key_writer_queue_size,
-    500000,
+    50000,
     "The size of queue for each key writer thread. Set this extremely high if "
     "starting the service from scratch with no persistent data.");
 DEFINE_int32(key_writer_threads, 1, "The number of key writer threads");
 DEFINE_int32(
     log_writer_queue_size,
-    100000,
+    300,
     "The size of queue for each log writer thread");
 
 DECLARE_int32(
@@ -225,7 +222,7 @@ BeringeiServiceHandler::BeringeiServiceHandler(
     if (FLAGS_using_libpmem_or_libpmem2) {
       std::string curLogDirectory = FLAGS_log_directory;
       curLogDirectory.append(std::to_string(i % FLAGS_pmem_dimms));
-      curLogDirectory.append("/logData");
+      // curLogDirectory.append("/logData");
       bucketLogWriters.emplace_back(new BucketLogWriter(
           FLAGS_bucket_size,
           curLogDirectory,
@@ -246,8 +243,8 @@ BeringeiServiceHandler::BeringeiServiceHandler(
 
   std::vector<std::unique_ptr<BucketMap>> maps(FLAGS_shards);
 
-  // #pragma omp parallel
-  // #pragma omp for
+  #pragma omp parallel
+  #pragma omp for
   for (int i = 0; i < FLAGS_shards; i++) {
     // Select the bucket log writer and block writer for each shard by
     // random instead of by modulo to allow better distribution

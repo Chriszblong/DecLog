@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
 
 # This is necessary so that find_package can find the "Find$x.cmake" files.
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/beringei/cmake" ${CMAKE_MODULE_PATH})
-set(CMAKE_CXX_FLAGS "-O3 -fopenmp")
+set(CMAKE_CXX_FLAGS "-O2 -fopenmp")
 # set(CMAKE_CXX_FLAGS "-fopenmp")
 
 

@@ -1221,28 +1221,39 @@ void BucketMap::readLogFilesParallel(uint32_t lastBlock) {
     // The length of log file names is 11.
     // The last number indicates the logging pipeline thread ID.
     // int64_t baseTime = id / 10;
-    std::vector<int64_t> baseTimes(FLAGS_number_of_logging_queues);
+    std::vector<int64_t> baseTimes;
+    baseTimes.reserve(FLAGS_number_of_logging_queues);
 
-    std::vector<int64_t> curOffsets(FLAGS_number_of_logging_queues);
+    std::vector<int64_t> curOffsets;
+    curOffsets.reserve(FLAGS_number_of_logging_queues);
 
-    std::vector<int64_t> curPreTimestamps(FLAGS_number_of_logging_queues);
+    std::vector<int64_t> curPreTimestamps;
+    curPreTimestamps.reserve(FLAGS_number_of_logging_queues);
 
     isInsertThreadRunnings[shardId_] = true;
     insertThreadCon.notify_all();
 
     if (FLAGS_using_libpmem_or_libpmem2) {
-      for (int j = 0; j < FLAGS_number_of_logging_queues; ++j) {
+      int j = 0;
+      for (; j < FLAGS_number_of_logging_queues; ++j) {
         paths[j] = files.getPath(ids[i + j]);
-        baseTimes[j] = ids[i + j] / 10;
-        curOffsets[j] = offsets[i + j];
-        curPreTimestamps[j] = preTimestamps[i + j] == 0 ? baseTimes[j] : preTimestamps[i + j];
+        if (j > 0) {
+          int curBaseTime = ids[i + j] / 10 - ids[i + j] / 10 % windowSize_;
+          // There is no logs for update transactions in this bucket.
+          if(curBaseTime != baseTimes[j - 1] - baseTimes[j - 1] % windowSize_) {
+            break;
+          }
+        }
+        baseTimes.emplace_back(ids[i + j] / 10);
+        curOffsets.emplace_back(offsets[i + j]);
+        curPreTimestamps.emplace_back(preTimestamps[i + j] == 0 ? baseTimes[j] : preTimestamps[i + j]);
         // if (baseTimes[j] < timestamp(lastBlock + 1) && FLAGS_is_checkpoint) {
         //   LOG(INFO) << "Skipping log file " << ids[i + j] << " because it's already "
         //             << "covered by a block";
         //   continue;
         // }
       }
-      i += FLAGS_number_of_logging_queues;
+      i += j;
 
       uint32_t b = bucket(baseTimes[0]);
 

@@ -95,13 +95,14 @@ class BucketLogWriter {
   void startWriterThread();
   void stopWriterThread();
 
-  // Calculate LSN by data-driven LSN, used for DNLog.
-  uint32_t calculateLSN(int32_t flag, int64_t oriTime);
+  // Compute LSN by data-driven LSN, used for DNLog.
+  uint32_t computeLSN(int32_t flag, int64_t oriTime);
 
-  // Calculate LSN by global LSN, used for Beringei.
-  // However, It maybe unnecessary to calculate LSN explicitly,
+  // WARNING: THIS FUNCTION IS JUST USED FOR TEST.
+  // Compute LSN by global LSN, used for Beringei.
+  // However, It maybe unnecessary to compute LSN explicitly,
   // The codes is just used for test.
-  uint32_t calculateLSN(int32_t flag);
+  uint32_t computeLSN(int32_t flag);
 
 
   uint32_t bucket(uint64_t unixTime, int shardId) const;
@@ -166,7 +167,7 @@ class BucketLogWriter {
 
   int queueFlag_;
 
-  mutable int lastWriteBuckets_;
+  int latestBucket_;
 
 
   // std::mutex commitMutex_;

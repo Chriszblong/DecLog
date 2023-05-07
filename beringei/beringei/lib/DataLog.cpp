@@ -26,9 +26,15 @@ extern "C"{
 
 // DECLARE_int32(num_thrift_pool_threads);
 
+
+DEFINE_int32(
+    bucket_size,
+    2 * 3600,
+    "Size of each bucket in seconds");
+
 DEFINE_int32(
     log_writer_threads,
-    1,
+    8,
     "The number of log writer threads,"
     "should be the same with that in BeringeiServiceHandler.cpp"
     );
@@ -54,30 +60,37 @@ snapshot snapshot_ = snapshot(FLAGS_log_writer_threads);
 folly::RWSpinLock DataLogWriter::pmemLock_;
 
 std::vector<int> DataLogWriter::flushedFlags_(FLAGS_log_writer_threads, -1);
+
+
+// Used for condition variables of parallel logging.
+// The size of # smaller than the pramametre FLAGS_log_writer_threads may result in deadlock
+// without exception thrown out.
+static std::vector<std::mutex> loggingConMutex_(FLAGS_log_writer_threads);
+
 // Initialize condition variables for parallel logging.
-std::unique_ptr<std::mutex[]> DataLogWriter::loggingConMutex_( new std::mutex[FLAGS_log_writer_threads] );
-std::unique_ptr<std::condition_variable[]> DataLogWriter::loggingCon_(new std::condition_variable[FLAGS_log_writer_threads]);
+// Used for the condition variable.
+static std::vector<std::condition_variable> loggingCon_(FLAGS_log_writer_threads);
+// std::shared_ptr<std::mutex[]> DataLogWriter::loggingConMutex_( new std::mutex[FLAGS_log_writer_threads] );
+// std::unique_ptr<std::condition_variable[]> DataLogWriter::loggingCon_(new std::condition_variable[FLAGS_log_writer_threads]);
 // std::vector<std::mutex> DataLogWriter::loggingConMutex_(FLAGS_log_writer_threads);
 
 // std::vector<std::condition_variable> DataLogWriter::loggingCon_(FLAGS_log_writer_threads);
 // std::mutex DataLogWriter::threadSyncMutex_;
 
-std::mutex g_mutex;
-std::atomic<uint32_t> gLSN(0);
-// uint32_t gLSN = 0;
+
 
 /* the mapped NVM/DISK log file size -- 1 GB */
 // #define NVM_LOG_FILE_SIZE ((size_t)(1 << 30))
 
-/* the mapped NVM/DISK log file size -- 64MB */
-#define NVM_LOG_FILE_SIZE ((size_t)(1 << 26))
+/* the mapped NVM/DISK log file size -- 32MB */
+#define NVM_LOG_FILE_SIZE ((size_t)(1 << 25))
 
 /* the mapped NVM/DISK checkpoint file size -- 32KB */
 #define NVM_CHECKPOINT_FILE_SIZE ((size_t)(1 << 15))
 
 DEFINE_int32(
     number_of_logging_queues,
-    1,
+    2,
     "The number of the buffers for logging pipeline.");
 
 DEFINE_int32(
@@ -109,13 +122,12 @@ DEFINE_int32(
 
 DEFINE_int32(
     Beringei_NVM,
-    1,
+    0,
     "Determine the strategy of sfence(). Beringei_NVM = 1 means using sfence() for each log");
 
 DEFINE_int32(
     data_log_buffer_size,
-    65536,
-    // 256,
+    256,
     "The size of the internal buffer when logging data. Buffer size of 64K "
     "equals roughly to 3 seconds of data before it's written to disk");
 DEFINE_int32(
@@ -137,6 +149,7 @@ const static int kFlagBits = 2;
 
 // 11 bits with with an unused bits for LSN. One of the bits is used for the control bit.
 const static int kLongLSNBits = 10;
+const static int kLongLSNBitsForBeringei = 32;
 const static int kShortLSNControlBit = 1;
 const static int kLongLSNControlBit = 0;
 
@@ -184,6 +197,9 @@ const static int kDifferentValueControlBit = 1;
 
 const static std::string kFailedCounter = ".failed_writes.log";
 
+// Record the offsets of log files after recovery.
+static std::map<int64_t, size_t> logFileOffsets;
+
 
 const int DataLogReader::kStartCheckpoint = -4;
 const int DataLogReader::kStopCheckpoint = -5;
@@ -219,17 +235,42 @@ DataLogWriter::DataLogWriter(const char *path, int64_t baseTime, uint32_t logId,
   }
   // The Log file.
   else {
-    if ((pMemAddr_ = (char*) pmem_map_file(path, NVM_LOG_FILE_SIZE,
-          PMEM_FILE_CREATE|PMEM_FILE_EXCL,
-          0666, &mapped_len_, &is_pmem_)) == NULL) {
-      perror("can't map pmem_map_file path: ");
-      perror(path);
-      exit(1);
+    std::string curPath(path);
+    int64_t newBaseTime = baseTime; 
+
+    // Update baseTime as what recorded in the existing log file.
+    if (baseTime % 10) {
+      auto itLower = logFileOffsets.lower_bound(baseTime/10);
+      auto itUpper = logFileOffsets.upper_bound(baseTime/10);
+      if (itLower != logFileOffsets.end() && baseTime - itLower->first < FLAGS_bucket_size && itLower->first % FLAGS_bucket_size != 0) {
+        newBaseTime = itLower->first % 10 ? itLower->first : itUpper->first;
+        curPath.replace(curPath.rfind(std::to_string(baseTime)), 11, std::to_string(newBaseTime) + std::to_string(threadID));
+      }
+    }
+    // Create a new log file.
+    if (logFileOffsets.find(newBaseTime) == logFileOffsets.end()) {
+      if ((pMemAddr_ = (char*) pmem_map_file(path, NVM_LOG_FILE_SIZE,
+            PMEM_FILE_CREATE|PMEM_FILE_EXCL,
+            0666, &mapped_len_, &is_pmem_)) == NULL) {
+        perror("can't map pmem_map_file path: ");
+        perror(path);
+        exit(1);
+      }
+      curPMemAddr_ = pMemAddr_;
+    }
+    // The database has recovered from logs and the path exists.
+    else {
+      if ((pMemAddr_ = (char*) pmem_map_file(curPath.c_str(), NVM_LOG_FILE_SIZE,
+            PMEM_FILE_CREATE, 0666, &mapped_len_, &is_pmem_)) == NULL) {
+        perror("can't map pmem_map_file path: ");
+        perror(path);
+        exit(1);
+      }
+      curPMemAddr_ = pMemAddr_ + logFileOffsets[baseTime];
     }
   }
 	
   LOG(INFO) << "is pmem?????" << is_pmem_;
-  curPMemAddr_ = pMemAddr_;
 
   buffers_.resize(FLAGS_number_of_logging_queues + 1);
   logEntrySizes_.resize(FLAGS_number_of_logging_queues + 1);
@@ -505,7 +546,12 @@ bool DataLogWriter::append(
   }
   else {
     BitUtil::addValueToBitString(kLongLSNControlBit, 1, bits, numBits);
-    BitUtil::addValueToBitString(LSN, kLongLSNBits, bits, numBits);
+    if (FLAGS_Beringei_NVM) {
+      BitUtil::addValueToBitString(LSN, kLongLSNBitsForBeringei, bits, numBits);
+    }
+    else {
+      BitUtil::addValueToBitString(LSN, kLongLSNBits, bits, numBits);
+    }
   }
 
   // LOG(INFO) << "The LSN is: " << LSN << std::endl;
@@ -934,8 +980,14 @@ int DataLogReader::readLog(
         LSN = 0;
       }
       else {
-        LSN = BitUtil::readValueFromBitString(
+        if (FLAGS_Beringei_NVM) {
+          LSN = BitUtil::readValueFromBitString(
+            buffer.get(), len, bitPos, kLongLSNBitsForBeringei);
+        }
+        else {
+          LSN = BitUtil::readValueFromBitString(
             buffer.get(), len, bitPos, kLongLSNBits);
+        }
         if (LSN < 0){
           LOG(ERROR) << "Invalid LSN value "
                       << LSN;
@@ -1031,7 +1083,7 @@ int DataLogReader::readLog(
   int points = 0;
 
   size_t alignedSize = 0;
-  size_t logEntryBeginPos = 0;
+  // size_t logEntryBeginPos = 0;
   
   while (bitPoses[curFile] <= maxLens[curFile]) {
     // LOG(INFO) << "bitPos is: " << bitPos << std::endl;
@@ -1039,10 +1091,14 @@ int DataLogReader::readLog(
     //   bitPos += 1;
     //   bitPos -= 1;
     // }
+    // if(points == 104) {
+    //   points += 1;
+    //   points -= 1;
+    // }
     try {
-      if (FLAGS_NVM_address_aligned) {
-        logEntryBeginPos = bitPoses[curFile];
-      }
+      // if (FLAGS_NVM_address_aligned) {
+      logEntryBeginPoses[curFile] = bitPoses[curFile];
+      // }
 
       // Read the time stamp delta based on the the number of bits in
       // the delta.
@@ -1072,7 +1128,7 @@ int DataLogReader::readLog(
         // End of the aligned log entries, jump to the next aligned bits.
         case kEndOfLogEntry:
           bitPoses[curFile] +=  (bitPoses[curFile] & 0x7 == 0) ? 0 : (8 - (bitPoses[curFile] & 0x7));
-          alignedSize += (bitPoses[curFile] - logEntryBeginPos);
+          alignedSize += (bitPoses[curFile] - logEntryBeginPoses[curFile]);
           bitPoses[curFile] += (alignedSize == FLAGS_NVM_aligned_bits) ? 0 : (FLAGS_NVM_aligned_bits - alignedSize % (FLAGS_NVM_aligned_bits));
           alignedSize = 0;
           continue;
@@ -1087,6 +1143,9 @@ int DataLogReader::readLog(
         default:
           LOG(ERROR) << "Invalid time delta control value "
                      << timeDeltaControlValue;
+          for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+            logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
+          }
           return points;
       }
 
@@ -1169,6 +1228,10 @@ int DataLogReader::readLog(
                   << paths[curFile] << std::endl;
           LOG(INFO) << "The number of points is "
                     << points << std::endl;
+
+          for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+            logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
+          }
           return points;
         }
       }
@@ -1177,6 +1240,9 @@ int DataLogReader::readLog(
           if (flag < 1){
           LOG(INFO) << "Invalid log flag value "
                       << flag;
+          for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+            logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
+          }
           return points;
         }
 
@@ -1188,19 +1254,34 @@ int DataLogReader::readLog(
           LSN = 0;
         }
         else {
-          LSN = BitUtil::readValueFromBitString(
+          if (FLAGS_Beringei_NVM) {
+            LSN = BitUtil::readValueFromBitString(
+              pMemAddrs[curFile], mapped_lens[curFile], bitPoses[curFile], kLongLSNBitsForBeringei);
+          }
+          else {
+            LSN = BitUtil::readValueFromBitString(
               pMemAddrs[curFile], mapped_lens[curFile], bitPoses[curFile], kLongLSNBits);
+          }
+          
           if (LSN < 0){
             LOG(ERROR) << "Invalid LSN value "
                         << LSN;
-              return points;
+
+            for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+              logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
+            }
+            return points;
           }
         }
 
-        if (flag > 1 && (LSN < 1 || LSN > FLAGS_max_allowed_LSN)){
+        if (flag > 1 && (LSN < 1 || (LSN > FLAGS_max_allowed_LSN && !FLAGS_Beringei_NVM))){
           LOG(INFO) << "Invalid log flag value "
                       << flag << " and invalid LSN: " << LSN;
-          // return points;
+          
+          for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+            logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
+          }
+          return points;
         }
 
         // LOG(INFO) << "The LSN is: " << LSN << std::endl;
@@ -1227,7 +1308,7 @@ int DataLogReader::readLog(
           // }
           // isEndOfLog = false;
           if (LSN == 0) {
-            alignedSize += (bitPoses[curFile] - logEntryBeginPos);
+            alignedSize += (bitPoses[curFile] - logEntryBeginPoses[curFile]);
           }
           else {
             alignedSize = 0;
@@ -1260,6 +1341,9 @@ int DataLogReader::readLog(
   }
   for(int i = 0; i < paths.size(); ++i) {
     pmem_unmap(pMemAddrs[i], mapped_lens[i]);
+  }
+  for (int i = 0; i < logEntryBeginPoses.size(); ++i) {
+    logFileOffsets.insert(std::make_pair(baseTimes[i], logEntryBeginPoses[i]));
   }
   return points;
 }

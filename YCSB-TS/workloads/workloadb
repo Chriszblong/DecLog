@@ -18,8 +18,8 @@
 workload=com.yahoo.ycsb.workloads.MyWorkload
 
 #actually datapointcount = recordcount * timeinterval
-recordcount=10240
-operationcount=10000000
+recordcount=102400
+operationcount=400000000
 insertstart=1438000000
 metric=usermetric
 measurementtype=histogram
@@ -28,7 +28,7 @@ valuemin=-1000000000
 description=Inserts 1000000 records with 3 tags each. Earch tag has a value with a length of 10. Each record has a double value between 0 and 10000. After all inserts has processed there will be 1000 (random) read operations. Read will only use timestamp, no tags. All data will use 10000 predefined, randomly generated, tags. There is only one record per timestamp.
 timeresolution=1
 timeinterval=1
-metriccountperthread=32
+metriccountperthread=320
 threadcount=64
 
 maxscanlength=3000

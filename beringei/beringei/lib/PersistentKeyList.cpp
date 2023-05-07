@@ -23,8 +23,8 @@ DECLARE_int32(using_libpmem_or_libpmem2);
 namespace facebook {
 namespace gorilla {
 
-/* size of the mapped NVM file -- 16 MB */
-#define NVM_FILE_SIZE ((size_t)(1 << 24))
+/* size of the mapped NVM file -- 64 MB */
+#define NVM_FILE_SIZE ((size_t)(1 << 26))
 
 // For reads and compaction. Can probably be arbitrarily large.
 const static size_t kLargeBufferSize = 1 << 24;

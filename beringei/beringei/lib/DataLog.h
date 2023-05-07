@@ -24,11 +24,6 @@
 namespace facebook {
 namespace gorilla {
 
-extern std::mutex g_mutex;
-
-extern std::atomic<uint32_t> gLSN;
-// extern uint32_t gLSN;
-
 // The following variants are used as snapshot for parallel logging
 struct snapshot
 {
@@ -126,7 +121,7 @@ class DataLogWriter {
   }
 
   // The condition variable to coordinate logging queues.
-  static std::unique_ptr<std::condition_variable[]> loggingCon_; 
+  // static std::unique_ptr<std::condition_variable[]> loggingCon_; 
 
  private:
   // Update the curBuffer_.
@@ -187,11 +182,6 @@ class DataLogWriter {
   static std::vector<int> flushedFlags_;
 
   // static std::mutex threadSyncMutex_;
-
-  // Used for the condition variable.
-  static std::unique_ptr<std::mutex[]> loggingConMutex_;
-
-  
 
   // int numOfLogs_;
   

@@ -1,10 +1,12 @@
 # DecLog
 This is the source code of DecLog.
 
-Our paper,"DecLog: Decentralized Logging in Non-Volatile Memory for Time Series Database Systems" is submitted to VLDB2024.
+Our paper, "DecLog: Decentralized Logging in Non-Volatile Memory for Time Series Database Systems", is submitted to VLDB2024.
 
 
 ## Build DecLog
+[PMDK should be installed.](https://pmem.io/pmdk/)
+[The ipmctl should be installed before building DecLog.](https://github.com/intel/ipmctl)
 Copy Beringei to workspace.
 ```
 $ unzip ./install/ALL.zip
@@ -26,10 +28,18 @@ $ sudo mkdir /mnt/pmem0
 $ sudo mount -o dax /dev/pmem0 /mnt/pmem0
 $ sudo modprobe msr
 ```
-Make directorys for key list file and log file in SSD
+Make directorys for data file, key list file, and log file in SSD
 ```
+$ mkdir /tmp/gorilla_data
 $ mkdir /tmp/key
 $ mkdir /tmp/log
+```
+
+You can generate a beringei configuration file or modify hostAddress in the configuration file ./beringei/beringei.json.
+
+```
+sudo ./beringei/beringei/build/beringei/tools/beringei_configuration_generator --host_names $(hostname) --file_path $(filePath)
+
 ```
 
 
@@ -44,7 +54,7 @@ $ ./beringei/beringei/build/beringei/service/beringei_main \
         -logtostderr \
         -v=2 \
         -port 9997 \
-        -shards 4 \
+        -shards 8 \
         -data_directory /tmp/gorilla_data \
         -key_directory /tmp/key/ \
         -log_directory /mnt/pmem \
@@ -61,7 +71,7 @@ $ ./beringei/beringei/build/beringei/service/beringei_main \
         -logtostderr \
         -v=2 \
         -port 9997 \
-        -shards 4 \
+        -shards 8 \
         -data_directory /tmp/gorilla_data \
         -key_directory /tmp/key/ \
         -log_directory /tmp/log/ \
@@ -81,7 +91,7 @@ $ ./beringei/beringei/build/beringei/service/beringei_main \
         -logtostderr \
         -v=2 \
         -port 9997 \
-        -shards 4 \
+        -shards 8 \
         -data_directory /tmp/gorilla_data \
         -key_directory /tmp/key/ \
         -log_directory /mnt/pmem \
@@ -101,7 +111,7 @@ $ ./beringei/beringei/build/beringei/service/beringei_main \
         -logtostderr \
         -v=2 \
         -port 9997 \
-        -shards 4 \
+        -shards 8 \
         -data_directory /tmp/gorilla_data \
         -key_directory /tmp/key/ \
         -log_directory /tmp/log/ \
@@ -119,10 +129,10 @@ $ ./beringei/beringei/build/beringei/service/beringei_main \
 
 ```
 $ ${jdk_dir}/bin/java \
-        -classpath ./ycsb-0.4.0/lib/core-0.4.0.jar:./ycsb-0.4.0/beringei/lib/beringei-binding-0.4.0.jar:./ycsb-0.4.0/beringei/lib/slf4j-api-2.0.5.jar:./ycsb-0.4.0/beringei/lib/slf4j-simple-2.0.5.jar:./ycsb-0.4.0/beringei/lib/thriftjava-1.0-SNAPSHOT.jar com.yahoo.ycsb.Client \
-        -db com.yahoo.ycsb.db.BeringeiDBClient -load -P ./ycsb-0.4.0/workloads/workloada -p host=127.0.0.1 -p port=9997 -p shardCount=4 -s -threads 64 &> /dev/null
+        -classpath ./ycsb-0.4.0/lib/core-0.4.0.jar:./ycsb-0.4.0/beringei-binding/lib/beringei-binding-0.4.0.jar:./ycsb-0.4.0/beringei-binding/lib/slf4j-api-2.0.5.jar:./ycsb-0.4.0/beringei-binding/lib/slf4j-simple-2.0.5.jar:./ycsb-0.4.0/thrift/thriftjava-1.0-SNAPSHOT.jar com.yahoo.ycsb.Client \
+        -db com.yahoo.ycsb.db.BeringeiDBClient -load -P ./ycsb-0.4.0/workloads/workloada -p host=$IP -p port=9997 -p shardCount=4 -s -threads 64 &> /dev/null
 $ ${jdk_dir}/bin/java \
-        -classpath ./ycsb-0.4.0/lib/core-0.4.0.jar:./ycsb-0.4.0/beringei/lib/beringei-binding-0.4.0.jar:./ycsb-0.4.0/beringei/lib/slf4j-api-2.0.5.jar:./ycsb-0.4.0/beringei/lib/slf4j-simple-2.0.5.jar:./ycsb-0.4.0/beringei/lib/thriftjava-1.0-SNAPSHOT.jar com.yahoo.ycsb.Client \
-        -db com.yahoo.ycsb.db.BeringeiDBClient -P ./ycsb-0.4.0/workloads/workloada -p host=127.0.0.1 -p port=9997 -p shardCount=4 -s -threads 64 > workloada_output.txt
+        -classpath ./ycsb-0.4.0/lib/core-0.4.0.jar:./ycsb-0.4.0/beringei-binding/lib/beringei-binding-0.4.0.jar:./ycsb-0.4.0/beringei-binding/lib/slf4j-api-2.0.5.jar:./ycsb-0.4.0/beringei-binding/lib/slf4j-simple-2.0.5.jar:./ycsb-0.4.0/thrift/thriftjava-1.0-SNAPSHOT.jar com.yahoo.ycsb.Client \
+        -db com.yahoo.ycsb.db.BeringeiDBClient -P ./ycsb-0.4.0/workloads/workloada -p host=$IP -p port=9997 -p shardCount=4 -s -threads 64 > workloada_output.txt
 ```
 

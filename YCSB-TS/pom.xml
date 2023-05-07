@@ -70,7 +70,6 @@ LICENSE file.
     <properties>
         <maven.assembly.version>2.5.5</maven.assembly.version>
         <maven.dependency.version>2.10</maven.dependency.version>
-        <openjpa.jdbc.version>2.1.1</openjpa.jdbc.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <karirosdb.version>0.0.1</karirosdb.version>
         <opentsdb.version>0.0.1</opentsdb.version>
@@ -101,7 +100,6 @@ LICENSE file.
         <module>distribution</module>
         <module>influxdb-java</module>
         <module>influxdb</module>
-        <module>jdbc</module>
         <module>beringei</module>
 
     </modules>

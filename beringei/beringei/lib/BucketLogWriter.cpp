@@ -109,6 +109,11 @@ static const float kWaiteForLogsPersist = 0.1; // 0.1s
 const std::string BucketLogWriter::kLogFilePrefix = "log";
 const std::string BucketLogWriter::kCheckpointPrefix = "checkpoint";
 
+
+static std::mutex g_mutex;
+// std::atomic<uint32_t> gLSN(0);
+static uint32_t gLSN = 0;
+
 // std::unique_ptr<std::mutex[]> BucketLogWriter::queue_mutexes_(new std::mutex[FLAGS_log_writer_threads]);
 
 uint32_t BucketLogWriter::numShards_ = 1;
@@ -556,11 +561,11 @@ int32_t BucketLogWriter::logData(
   info.value = value;
   if (FLAGS_Beringei_NVM) {
     // This maybe unnecessary for Beringei.
-    // The calculateLSN() call is just used for test.
-    info.LSN = calculateLSN(flag);
+    // The computeLSN() call is just used for test.
+    info.LSN = computeLSN(flag);
   }
   else {
-    info.LSN = calculateLSN(flag, oriTime);
+    info.LSN = computeLSN(flag, oriTime);
   }
 
   if (flag != FLAGS_log_flag_insertion && info.LSN == 0) {
@@ -644,13 +649,13 @@ void BucketLogWriter::nextQueue() {
   // LOG(INFO) << "Current queue id is: " << curQueue_ << std::endl;
 }
 
-uint32_t BucketLogWriter::calculateLSN(int32_t flag, int64_t oriTime) {
+uint32_t BucketLogWriter::computeLSN(int32_t flag, int64_t oriTime) {
   // The LSN of inserted data is 0.
   if (flag == FLAGS_log_flag_insertion) {
     return 0;
   }
 
-  //The following code calculate the LSN of deleted and update Data.
+  //The following code compute the LSN of deleted and update Data.
 
   // Get the extention of timestamp,
   // oriUnixTime logic shift right unixTimesBits, then bitwise-and 0x3FF
@@ -672,22 +677,29 @@ uint32_t BucketLogWriter::calculateLSN(int32_t flag, int64_t oriTime) {
   return newLSN;
 }
 
-uint32_t BucketLogWriter::calculateLSN(int32_t flag) {
+// WARNING: THIS FUNCTION IS JUST USED FOR TEST.
+uint32_t BucketLogWriter::computeLSN(int32_t flag) {
   // if (flag == FLAGS_log_flag_insertion) {
   //   return 0;
   // }
-  // uint32_t newLSN;
-  // facebook::gorilla::g_mutex.lock();
+  uint32_t newLSN;
+  g_mutex.lock();
   // if (facebook::gorilla::gLSN == UINT32_MAX){
   //   // call checkpoint procedure
   //   // checkpoint()
   //   facebook::gorilla::gLSN = 0;
   // }
-  // facebook::gorilla::gLSN += 1;
+  if (flag == FLAGS_log_flag_insertion) {
+    newLSN = 0;
+  }
+  newLSN = ++gLSN;
+
+  // Update gLSN to avoid data overflow.
+  gLSN = (gLSN > FLAGS_max_allowed_LSN ? 0 : gLSN);
   // newLSN = facebook::gorilla::gLSN;
-  // facebook::gorilla::g_mutex.unlock();
-  return 0;
-  // return ++gLSN;
+  g_mutex.unlock();
+  // return 0;
+  return newLSN;
 }
 
 bool BucketLogWriter::writeOneLogEntry(bool blockingRead) {
@@ -815,51 +827,52 @@ bool BucketLogWriter::writeOneLogEntry(bool blockingRead) {
 }
 
 bool BucketLogWriter::writeOneLogEntry_NVM(bool blockingRead, const int threadID) {
-  
   // folly::MSLGuard guard(queue_lock_);
 
   // std::unique_lock<std::mutex> nextQueueGuard(queue_mutex_);
-
-  std::unique_lock<std::mutex> conGuard(queue_mutex_);
-      
-  // LOG(INFO) << "thread id: " << std::this_thread::get_id() << std::endl;
-
-  // Wait until the other thread have flushed the log with LSN > 0.
-  if (threadID - queueFlag_ != 1 && queueFlag_ - threadID != FLAGS_number_of_logging_queues - 1){
-    // DataLogWriter::loggingCon_[0].notify_all();
-    queueCon_.wait(conGuard);
-  }
-
-  bool isUpdateLog = false;
-  // LOG(INFO) << "current thread ID: " << threadID << ", logID:" << logId_ << std::endl;
-
   // This code assumes that there's only a single thread running here!
   std::vector<LogDataInfo> data;
-  LogDataInfo info;
+  {
+    std::unique_lock<std::mutex> conGuard(queue_mutex_);
+        
+    // LOG(INFO) << "thread id: " << std::this_thread::get_id() << std::endl;
 
-  if (stopThread_ && blockingRead) {
-    return false;
-  }
-
-  if (blockingRead) {
-    // First read is blocking then as many as possible without blocking.
-    // logDataQueues_[threadID]->blockingRead(info);
-    logDataQueue_.blockingRead(info);
-    data.emplace_back(std::move(info));
-    if (info.flag == FLAGS_log_flag_deletion || info.flag == FLAGS_log_flag_update) {
-      isUpdateLog = true;
-      queueFlag_ = threadID;
-      queueCon_.notify_all();
+    // Wait until the other thread have flushed the log with LSN > 0.
+    if (threadID - queueFlag_ != 1 && queueFlag_ - threadID != FLAGS_number_of_logging_queues - 1){
+      // DataLogWriter::loggingCon_[0].notify_all();
+      queueCon_.wait(conGuard);
     }
-  }
 
-  while (!isUpdateLog && logDataQueue_.read(info)) {
-    data.emplace_back(std::move(info));
-    if (info.flag == FLAGS_log_flag_deletion || info.flag == FLAGS_log_flag_update) {
-      isUpdateLog = true;
-      queueFlag_ = threadID;
-      queueCon_.notify_all();
-      break;
+    bool isUpdateLog = false;
+    // LOG(INFO) << "current thread ID: " << threadID << ", logID:" << logId_ << std::endl;
+
+    
+    LogDataInfo info;
+
+    if (stopThread_ && blockingRead) {
+      return false;
+    }
+
+    if (blockingRead) {
+      // First read is blocking then as many as possible without blocking.
+      // logDataQueues_[threadID]->blockingRead(info);
+      logDataQueue_.blockingRead(info);
+      data.emplace_back(std::move(info));
+      if (info.flag == FLAGS_log_flag_deletion || info.flag == FLAGS_log_flag_update) {
+        isUpdateLog = true;
+        queueFlag_ = threadID;
+        queueCon_.notify_all();
+      }
+    }
+
+    while (!isUpdateLog && logDataQueue_.read(info)) {
+      data.emplace_back(std::move(info));
+      if (info.flag == FLAGS_log_flag_deletion || info.flag == FLAGS_log_flag_update) {
+        isUpdateLog = true;
+        queueFlag_ = threadID;
+        queueCon_.notify_all();
+        break;
+      }
     }
   }
 
@@ -898,16 +911,16 @@ bool BucketLogWriter::writeOneLogEntry_NVM(bool blockingRead, const int threadID
         continue;
       }
 
-      int b;
+      int b = bucket(info.unixTime, info.shardId);
       
       if (info.LSN == 0) {
         b = bucket(info.unixTime, info.shardId);
-        // Update the last written bucket
-        lastWriteBuckets_ = b;
+        // Update latestBucket_.
+        latestBucket_ = b == latestBucket_ ? latestBucket_ + 1 : latestBucket_;
       }
-      // The updated Logs are forced to record into the last written bucket.
+      // The updated Logs are forced to record into the latest active bucket.
       else {
-        b = lastWriteBuckets_;
+        b = latestBucket_ - 1;
       }
 
       ShardWriter& shardWriter = iter->second;
@@ -953,7 +966,6 @@ bool BucketLogWriter::writeOneLogEntry_NVM(bool blockingRead, const int threadID
           timestamp(b, info.shardId) + getRandomOpenNextDuration(info.shardId);
       if (time(nullptr) > openNextFileTime && shardWriter.logWriters.find(b + 1) == shardWriter.logWriters.end()){
         uint32_t baseTime = timestamp(b + 1, info.shardId);
-        
         for (int i = 0; i < kFileOpenRetries; i++) {
           if (FLAGS_using_libpmem_or_libpmem2 == FLAGS_using_libpmem) {
             auto path = shardWriter.fileUtils->getPath(baseTime, threadID);
@@ -983,6 +995,7 @@ bool BucketLogWriter::writeOneLogEntry_NVM(bool blockingRead, const int threadID
             usleep(kSleepUsBetweenFailures);
           }
         }
+        latestBucket_ = b + 1;
       }
 
       // Only clear at most one previous bucket because the operation

@@ -5,22 +5,42 @@
         {
           "port" : 9997,
           "shardId" : 0,
-          "hostAddress" : "dell-PowerEdge-R750"
+          "hostAddress" : "node1"
         },
         {
           "port" : 9997,
           "shardId" : 1,
-          "hostAddress" : "dell-PowerEdge-R750"
+          "hostAddress" : "node1"
         },
         {
           "port" : 9997,
           "shardId" : 2,
-          "hostAddress" : "dell-PowerEdge-R750"
+          "hostAddress" : "node1"
         },
         {
           "port" : 9997,
           "shardId" : 3,
-          "hostAddress" : "dell-PowerEdge-R750"
+          "hostAddress" : "node1"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 4,
+          "hostAddress" : "node1"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 5,
+          "hostAddress" : "node1"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 6,
+          "hostAddress" : "node1"
+        },
+        {
+          "port" : 9997,
+          "shardId" : 7,
+          "hostAddress" : "node1"
         }
       ],
       "isLoggingNewKeysEnabled" : false,
@@ -28,7 +48,7 @@
       "location" : "facebook"
     }
   ],
-  "shardCount" : 4
+  "shardCount" : 8
 }
 
 //"hostAddress" : "dell-PowerEdge-R750"

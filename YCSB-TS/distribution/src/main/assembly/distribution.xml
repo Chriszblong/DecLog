@@ -47,6 +47,11 @@ LICENSE file.
             <outputDirectory>workloads</outputDirectory>
             <fileMode>0644</fileMode>
         </fileSet>
+        <fileSet>
+            <directory>../beringei/lib/</directory>
+            <outputDirectory>thrift</outputDirectory>
+            <fileMode>0644</fileMode>
+        </fileSet>
     </fileSets>
     <dependencySets>
         <dependencySet>

@@ -85,8 +85,8 @@ static std::vector<std::condition_variable> loggingCon_(FLAGS_log_writer_threads
 /* the mapped NVM/DISK log file size -- 32MB */
 #define NVM_LOG_FILE_SIZE ((size_t)(1 << 25))
 
-/* the mapped NVM/DISK checkpoint file size -- 32KB */
-#define NVM_CHECKPOINT_FILE_SIZE ((size_t)(1 << 15))
+/* the mapped NVM/DISK checkpoint file size -- 1MB */
+#define NVM_CHECKPOINT_FILE_SIZE ((size_t)(1 << 20))
 
 DEFINE_int32(
     number_of_logging_queues,
@@ -232,6 +232,7 @@ DataLogWriter::DataLogWriter(const char *path, int64_t baseTime, uint32_t logId,
       perror(path);
       exit(1);
     }
+    curPMemAddr_ = pMemAddr_;
   }
   // The Log file.
   else {

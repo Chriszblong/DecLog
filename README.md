@@ -3,6 +3,35 @@ This is the source code of DecLog.
 
 Our paper, "DecLog: Decentralized Logging in Non-Volatile Memory for Time Series Database Systems", is submitted to VLDB2024.
 
+## Introduction
+
+DecLog is decentralized logging system in NVM for TSDBMS by utilizing the characteristics of time series data to improve the logging performance. We implement it based on [a time series storage engine of Facebook, Beringei](https://pmem.io/pmdk/). The experimental study shows that the throughput of DecLog outperforms the Beringei TSDBMS by up to 4.6× with less recovery time in the YSCB-TS benchmark.
+
+Compared with original Beringei, DecLog has following features:
+
+* We propose a data-driven LSN based on the data accessed by transactions and track the transaction dependencies.
+* We design a relaxed ordering strategy to persist log entries to NVM by using log flushing pipeline, which effectively addresses the transaction serialization issue caused by a heavy use of sfence instructions.
+* We propose a thread snapshot based parallel logging method to further improve the concurrency of persisting logs to NVM in multi-threads with less thread synchronization overhead.
+* We design a log compression and alignment algorithm to process the logs to decrease the log storage footprint and to fully utilize NVM properties.
+* We implement checkpoint and recovery algorithms of DecLog to reduce the recovery time.
+
+## Experiments
+
+* **DecLog:** The compelete implementation of DecLog.
+* **DecLog-SSD:** DecLog, but with logging in SSD.
+* **Beringei-NVM:** The original implementation of Beringei with logging in NVM.
+* **Beringei-SSD:** The original implementation of Beringei with logging in SSD.
+
+
+<div align="center">
+    <img src="./throughput.png" alt="throughput">
+    <img src="./recovery.png" alt="recovery">
+</div>
+
+## Directory Description
+* **YCSB-TS：** The source code for the benchmark, YCSB-TS developed with Java.
+* **beringei：** The source code for DecLog, implemented based on Beringei with C++.
+* **install：** Some scripts and packages, used to build the environment and DecLog.
 
 ## Build DecLog
 [PMDK should be installed.](https://pmem.io/pmdk/)
